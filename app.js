@@ -24,7 +24,26 @@ $('linkForm').onsubmit=async e=>{e.preventDefault();if(!editor)return;const a=$(
 $('newPerson').onclick=()=>openEdit(null);$('newLink').onclick=()=>{const opts=people.map(p=>new Option(p.name,p.id));for(const id of ['linkA','linkB'])$(id).replaceChildren(...opts.map(o=>o.cloneNode(true)));$('linkDescription').value='';$('linkConfirmed').checked=false;$('linkDialog').showModal()};
 $('cancelEdit').onclick=()=>$('editDialog').close();$('cancelLink').onclick=()=>$('linkDialog').close();$('loginBtn').onclick=()=>$('authDialog').showModal();$('closeAuth').onclick=()=>$('authDialog').close();$('logoutBtn').onclick=async()=>{await db.auth.signOut();await checkRole()};
 $('authForm').onsubmit=async e=>{e.preventDefault();const {error}=await db.auth.signInWithPassword({email:$('email').value,password:$('password').value});$('authMessage').textContent=error?.message||'';if(!error){$('authDialog').close();await checkRole()}};
+$('forgotPasswordBtn').onclick=async()=>{
+  const email=$('email').value.trim()||prompt('Enter the email address of your organizer account:');
+  if(!email)return;
+  $('authMessage').textContent='Sending password reset email…';
+  const redirectTo=location.origin+location.pathname;
+  const {error}=await db.auth.resetPasswordForEmail(email,{redirectTo});
+  $('authMessage').textContent=error?error.message:'If an account exists for that email, a password reset link has been sent. Check your inbox and spam folder.';
+};
+$('recoveryForm').onsubmit=async e=>{
+  e.preventDefault();
+  const password=$('recoveryPassword').value;
+  if(password!==$('recoveryConfirm').value){$('recoveryMessage').textContent='Passwords do not match.';return;}
+  $('recoveryMessage').textContent='Saving…';
+  const {error}=await db.auth.updateUser({password});
+  if(error){$('recoveryMessage').textContent=error.message;return;}
+  $('recoveryMessage').textContent='Password updated successfully. You are signed in.';
+  $('recoveryPassword').value='';$('recoveryConfirm').value='';
+  setTimeout(()=>{$('recoveryDialog').close();checkRole()},1200);
+};
 $('signupBtn').onclick=async()=>{const {error}=await db.auth.signUp({email:$('email').value,password:$('password').value});$('authMessage').textContent=error?.message||'Account requested. Check your email, then ask an administrator to approve you.'};
 for(const id of ['search','category','stage'])$(id).addEventListener(id==='search'?'input':'change',render);
-db.auth.onAuthStateChange(()=>{setTimeout(checkRole,0)});checkRole().then(load).catch(e=>notice(e.message));
+db.auth.onAuthStateChange((event)=>{if(event==='PASSWORD_RECOVERY'){$('authDialog').close();$('recoveryMessage').textContent='';$('recoveryDialog').showModal();}setTimeout(checkRole,0)});checkRole().then(load).catch(e=>notice(e.message));
 })();
